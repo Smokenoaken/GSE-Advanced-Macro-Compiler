@@ -96,16 +96,31 @@ function GSE.PerformOneOffEvents()
         GSEOptions.Updates["actionBarOverridePopupDefault"] = true
     end
     if GSE.isEmpty(GSE_C.Updates["3218"]) then
-        if GSE_C["ActionBarBinds"] then
-            for k, v in pairs(GSE_C["ActionBarBinds"]["Specialisations"]) do
-                for i, j in pairs(v) do
-                    GSE_C["ActionBarBinds"]["Specialisations"][k][i] = {["Sequence"] = j, ["Bind"] = i}
+        local actionBarBinds = GSE_C["ActionBarBinds"]
+        if actionBarBinds then
+            for _, buttons in pairs(actionBarBinds["Specialisations"] or {}) do
+                if type(buttons) == "table" then
+                    for buttonName, bind in pairs(buttons) do
+                        if type(bind) ~= "table" then
+                            buttons[buttonName] = {["Sequence"] = bind, ["Bind"] = buttonName}
+                        elseif GSE.isEmpty(bind.Bind) then
+                            bind.Bind = buttonName
+                        end
+                    end
                 end
             end
-            for k, v in pairs(GSE_C["ActionBarBinds"]["LoadOuts"]) do
-                for i, j in pairs(v) do
-                    for m, l in pairs(j) do
-                        GSE_C["ActionBarBinds"]["LoadOuts"][k][i][m] = {["Sequence"] = l, ["Bind"] = m}
+            for _, loadouts in pairs(actionBarBinds["LoadOuts"] or {}) do
+                if type(loadouts) == "table" then
+                    for _, buttons in pairs(loadouts) do
+                        if type(buttons) == "table" then
+                            for buttonName, bind in pairs(buttons) do
+                                if type(bind) ~= "table" then
+                                    buttons[buttonName] = {["Sequence"] = bind, ["Bind"] = buttonName}
+                                elseif GSE.isEmpty(bind.Bind) then
+                                    bind.Bind = buttonName
+                                end
+                            end
+                        end
                     end
                 end
             end

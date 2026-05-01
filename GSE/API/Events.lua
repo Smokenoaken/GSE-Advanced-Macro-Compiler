@@ -439,6 +439,9 @@ local function overrideActionButton(savedBind, force)
     if GSE.isEmpty(GSE.ButtonOverrides) then
         GSE.ButtonOverrides = {}
     end
+    if type(savedBind) ~= "table" or GSE.isEmpty(savedBind.Bind) or GSE.isEmpty(savedBind.Sequence) then
+        return
+    end
     local Button = savedBind.Bind
     if not _G[Button] then
         return
@@ -596,22 +599,27 @@ local function LoadOverrides(force)
     if not InCombatLockdown() then
         for k, _ in pairs(GSE.ButtonOverrides) do
             -- revert all buttons
-            if string.sub(k, 1, 5) == "ElvUI" or string.sub(k, 1, 4) == "CPB_" or string.sub(k, 1, 3) == "BT4" then
-                local state = "1"
-                --_G[Button]:GetAttribute("state"),
-                if string.sub(k, 1, 3) == "BT4" then
-                    state = "0"
-                elseif string.sub(k, 1, 4) == "CPB_" then
-                    state = ""
+            local buttonFrame = _G[k]
+            if buttonFrame then
+                if string.sub(k, 1, 5) == "ElvUI" or string.sub(k, 1, 4) == "CPB_" or string.sub(k, 1, 3) == "BT4" then
+                    local state = "1"
+                    --_G[Button]:GetAttribute("state"),
+                    if string.sub(k, 1, 3) == "BT4" then
+                        state = "0"
+                    elseif string.sub(k, 1, 4) == "CPB_" then
+                        state = ""
+                    end
+                    buttonFrame:SetState(state, "action", tonumber(string.match(k, "%d+$")))
+                    removeGSEWatermark(k)
+                else
+                    buttonFrame:SetAttribute("gse-button", nil)
+                    buttonFrame:SetAttribute("type", "action")
+                    SecureHandlerUnwrapScript(buttonFrame, "OnClick")
+                    SecureHandlerUnwrapScript(buttonFrame, "OnEnter")
+                    SecureHandlerUnwrapScript(buttonFrame, "OnAttributeChanged")
+                    removeGSEWatermark(k)
                 end
-                _G[k]:SetState(state, "action", tonumber(string.match(k, "%d+$")))
-                removeGSEWatermark(k)
             else
-                _G[k]:SetAttribute("gse-button", nil)
-                _G[k]:SetAttribute("type", "action")
-                SecureHandlerUnwrapScript(_G[k], "OnClick")
-                SecureHandlerUnwrapScript(_G[k], "OnEnter")
-                SecureHandlerUnwrapScript(_G[k], "OnAttributeChanged")
                 removeGSEWatermark(k)
             end
         end
@@ -807,7 +815,7 @@ local function startup()
         -- only do this for retail not classics
         for iter = 0, 13 do
             if GSE.Library[iter] then
-                for k,v in ipairs(GSE.Library[iter]) do
+                for k, v in pairs(GSE.Library[iter]) do
                     if not v.MetaData then
                         v.MetaData = {}
                     end
@@ -914,8 +922,27 @@ function GSE:CHARACTER_POINTS_CHANGED()
     GSE.ReloadSequences()
 end
 
+local function scheduleSpellbookReload()
+    if GSE.UnsavedOptions.SpellbookReloadQueued then
+        return
+    end
+    GSE.UnsavedOptions.SpellbookReloadQueued = true
+    local function reloadFromSpellbook()
+        GSE.UnsavedOptions.SpellbookReloadQueued = nil
+        -- Spell override data can arrive just after talent/spec events. Force a
+        -- fresh sequence build so macrotext recompiles against the current spellbook.
+        GSE.UnsavedOptions.ReloadQueued = nil
+        GSE.ReloadSequences()
+    end
+    if C_Timer and C_Timer.After then
+        C_Timer.After(0.25, reloadFromSpellbook)
+    else
+        reloadFromSpellbook()
+    end
+end
+
 function GSE:SPELLS_CHANGED()
-    GSE.ReloadSequences()
+    scheduleSpellbookReload()
 end
 
 function GSE:ACTIVE_TALENT_GROUP_CHANGED()
@@ -988,7 +1015,7 @@ function GSE:GROUP_ROSTER_UPDATE(...)
             (not IsInGroup(LE_PARTY_CATEGORY_HOME) and IsInGroup(LE_PARTY_CATEGORY_INSTANCE)) and "INSTANCE_CHAT" or
             "PARTY"
     end
-    if #GSE.UnsavedOptions["PartyUsers"] > 1 then
+    if GSE.CountTableLength(GSE.UnsavedOptions["PartyUsers"]) > 0 then
         GSE.SendSpellCache(channel)
     end
     -- Group Team stuff
@@ -1036,9 +1063,10 @@ if GSE.GameMode > 10 then
     GSE:RegisterEvent("ACTIVE_COMBAT_CONFIG_CHANGED")
 end
 
+GSE:RegisterEvent("SPELLS_CHANGED")
+
 if GSE.GameMode <= 3 then
     GSE:RegisterEvent("CHARACTER_POINTS_CHANGED")
-    GSE:RegisterEvent("SPELLS_CHANGED")
 end
 
 function GSE:OnEnable()
@@ -1057,6 +1085,61 @@ function GSE.StopOOCTimer()
     GSE.OOCTimer = nil
 end
 
+local function processOOCQueueItem(v)
+    if type(v) ~= "table" or GSE.isEmpty(v.action) then
+        return
+    end
+    if v.action == "UpdateSequence" then
+        GSE.OOCUpdateSequence(v.name, v.macroversion)
+    elseif v.action == "Save" then
+        GSE.OOCAddSequenceToCollection(v.sequencename, v.sequence, v.classid)
+    elseif v.action == "Replace" then
+        if GSE.isEmpty(GSE.Library[v.classid][v.sequencename]) then
+            GSE.AddSequenceToCollection(v.sequencename, v.sequence, v.classid)
+        else
+            GSE.ReplaceSequence(v.classid, v.sequencename, v.sequence)
+            GSE.UpdateSequence(v.sequencename, v.sequence.Versions[GSE.GetActiveSequenceVersion(v.sequencename)])
+        end
+    elseif v.action == "updatevariable" then
+        GSE.UpdateVariable(v.variable, v.name)
+    elseif v.action == "updatemacro" then
+        GSE.UpdateMacro(v.node)
+    elseif v.action == "importmacro" then
+        GSE.ImportMacro(v.node)
+    elseif v.action == "managemacros" then
+        GSE.ManageMacros()
+    elseif v.action == "CheckMacroCreated" then
+        GSE.OOCCheckMacroCreated(v.sequencename, v.create)
+    elseif v.action == "MergeSequence" then
+        GSE.OOCPerformMergeAction(v.mergeaction, v.classid, v.sequencename, v.newSequence)
+    elseif v.action == "FinishReload" then
+        GSE.UnsavedOptions.ReloadQueued = nil
+    elseif v.action == "migrateremainingclasses" then
+        GSE.MigrateAllRemainingClasses()
+        if GSE.ProcessCorruptSequences and not GSE.isEmpty(GSE.CorruptSequences) then
+            GSE.ProcessCorruptSequences()
+        end
+    elseif v.action == "openoptions" then
+        if GSE.OpenOptionsPanel then
+            GSE.OpenOptionsPanel()
+        end
+    elseif v.action == "deletesequence" then
+        -- Generic OOC sequence delete. Used by the Companion bridge after the user
+        -- confirms a delete. classid is resolved at enqueue time.
+        if v.sequencename and v.classid and tonumber(v.classid) and tonumber(v.classid) > 0 then
+            GSE.DeleteSequence(tonumber(v.classid), v.sequencename)
+        end
+    elseif v.action == "deletevariable" then
+        if v.variablename then
+            GSE.DeleteVariable(v.variablename)
+        end
+    elseif v.action == "deletemacro" then
+        if v.macroname then
+            GSE.DeleteMacro(v.macroname)
+        end
+    end
+end
+
 function GSE:ProcessOOCQueue()
     -- check ZONE_CHANGED_NEW_AREA issues
     if GSE.currentZone ~= GetRealZoneText() then
@@ -1069,57 +1152,12 @@ function GSE:ProcessOOCQueue()
     GSE.OOCQueue = {}
     for _, v in ipairs(queue) do
         if not InCombatLockdown() then
-            if v.action == "UpdateSequence" then
-                GSE.OOCUpdateSequence(v.name, v.macroversion)
-            elseif v.action == "Save" then
-                GSE.OOCAddSequenceToCollection(v.sequencename, v.sequence, v.classid)
-            elseif v.action == "Replace" then
-                if GSE.isEmpty(GSE.Library[v.classid][v.sequencename]) then
-                    GSE.AddSequenceToCollection(v.sequencename, v.sequence, v.classid)
-                else
-                    GSE.ReplaceSequence(v.classid, v.sequencename, v.sequence)
-                    GSE.UpdateSequence(v.sequencename, v.sequence.Versions[GSE.GetActiveSequenceVersion(v.sequencename)])
-                end
-            elseif v.action == "updatevariable" then
-                GSE.UpdateVariable(v.variable, v.name)
-            elseif v.action == "updatemacro" then
-                GSE.UpdateMacro(v.node)
-            elseif v.action == "importmacro" then
-                GSE.ImportMacro(v.node)
-            elseif v.action == "managemacros" then
-                GSE.ManageMacros()
-            elseif v.action == "CheckMacroCreated" then
-                GSE.OOCCheckMacroCreated(v.sequencename, v.create)
-            elseif v.action == "MergeSequence" then
-                GSE.OOCPerformMergeAction(v.mergeaction, v.classid, v.sequencename, v.newSequence)
-            elseif v.action == "FinishReload" then
-                GSE.UnsavedOptions.ReloadQueued = nil
-            elseif v.action == "migrateremainingclasses" then
-                GSE.MigrateAllRemainingClasses()
-                if GSE.ProcessCorruptSequences and not GSE.isEmpty(GSE.CorruptSequences) then
-                    GSE.ProcessCorruptSequences()
-                end
-            elseif v.action == "openoptions" then
-                if GSE.OpenOptionsPanel then
-                    GSE.OpenOptionsPanel()
-                end
-            elseif v.action == "deletesequence" then
-                -- Generic OOC sequence delete. Used by the Companion bridge
-                -- after the user confirms a delete (the website record has
-                -- already been soft-deleted by the time we get here) and
-                -- could be used by future Mod UI paths that need to delete
-                -- out-of-combat. classid resolved at enqueue time.
-                if v.sequencename and v.classid and tonumber(v.classid) and tonumber(v.classid) > 0 then
-                    GSE.DeleteSequence(tonumber(v.classid), v.sequencename)
-                end
-            elseif v.action == "deletevariable" then
-                if v.variablename then
-                    GSE.DeleteVariable(v.variablename)
-                end
-            elseif v.action == "deletemacro" then
-                if v.macroname then
-                    GSE.DeleteMacro(v.macroname)
-                end
+            local ok, err = pcall(processOOCQueueItem, v)
+            if not ok then
+                GSE.Print(
+                    "GSE OOC queue error processing " .. tostring(v and v.action or "unknown") .. ": " .. tostring(err),
+                    Statics.DebugModules["API"]
+                )
             end
         else
             -- Still in combat; put the item back so it's processed next tick.

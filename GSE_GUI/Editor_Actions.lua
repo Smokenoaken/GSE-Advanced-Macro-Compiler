@@ -134,7 +134,9 @@ local function renderPause(editframe, pcontainer, action, version, keyPath, tree
     end
     linegroup1:AddChild(msvalueeditbox)
 
-    block:AddChild(GetBlockToolbar(version, keyPath, treepath, includeAdd, hlabel, linegroup1))
+    local toolbarGroup, finalizeToolbar = GetBlockToolbar(version, keyPath, treepath, includeAdd, hlabel, linegroup1)
+    finalizeToolbar()
+    block:AddChild(toolbarGroup)
     block:AddChild(linegroup1)
     pcontainer:AddChild(block)
 end
@@ -149,7 +151,8 @@ local function renderAction(editframe, pcontainer, action, version, keyPath, tre
     macroPanel:SetFullWidth(true)
     macroPanel:SetAutoAdjustHeight(true)
 
-    local linegroup1 = GetBlockToolbar(version, keyPath, treepath, includeAdd, hlabel, macroPanel)
+    local linegroup1, finalizeToolbar = GetBlockToolbar(version, keyPath, treepath, includeAdd, hlabel, macroPanel)
+    finalizeToolbar()
 
     macroPanel:AddChild(linegroup1)
 
@@ -403,7 +406,7 @@ local function renderLoop(editframe, pcontainer, action, version, keyPath, treep
     local layout3 = AceGUI:Create("InlineGroup")
     layout3:SetFullWidth(true)
     layout3:SetLayout("List")
-    local linegroup1 = GetBlockToolbar(version, keyPath, treepath, includeAdd, hlabel, layout3)
+    local linegroup1, finalizeToolbar = GetBlockToolbar(version, keyPath, treepath, includeAdd, hlabel, layout3)
 
     local stepdropdown = AceGUI:Create("Dropdown")
     stepdropdown:SetLabel(L["Step Function"])
@@ -483,6 +486,7 @@ local function renderLoop(editframe, pcontainer, action, version, keyPath, treep
     spacerlabel2:SetWidth(5)
     linegroup1:AddChild(spacerlabel2)
     linegroup1:AddChild(looplimit)
+    finalizeToolbar()
 
     layout3:AddChild(linegroup1)
     local macroGroup = AceGUI:Create("SimpleGroup")
@@ -511,7 +515,7 @@ local function renderIf(editframe, pcontainer, action, version, keyPath, treepat
             macroPanel.frame:SetBackdrop(nil)
         end
     )
-    local linegroup1 = GetBlockToolbar(version, keyPath, treepath, false, hlabel, macroPanel)
+    local linegroup1, finalizeToolbar = GetBlockToolbar(version, keyPath, treepath, false, hlabel, macroPanel)
 
     local booleanEditBox = AceGUI:Create("EditBox")
     booleanEditBox:SetLabel(L["Variable"])
@@ -589,6 +593,7 @@ local function renderIf(editframe, pcontainer, action, version, keyPath, treepat
         )
     end
     linegroup1:AddChild(booleanEditBox)
+    finalizeToolbar()
 
     local trueKeyPath = GSE.CloneSequence(keyPath)
     table.insert(trueKeyPath, 1)
@@ -605,7 +610,8 @@ local function renderIf(editframe, pcontainer, action, version, keyPath, treepat
     trueContainer:SetLayout("Flow")
     trueContainer:SetFullWidth(true)
 
-    local toolbar = GetBlockToolbar(version, trueKeyPath, treepath, true, tlabel, trueContainer, true, true, true)
+    local toolbar, finalizeToolbar1 = GetBlockToolbar(version, trueKeyPath, treepath, true, tlabel, trueContainer, true, true, true)
+    finalizeToolbar1()
     trueGroup:AddChild(toolbar)
 
     for key, act in ipairs(action[1]) do
@@ -633,7 +639,8 @@ local function renderIf(editframe, pcontainer, action, version, keyPath, treepat
     falsecontainer:SetFullWidth(true)
     falsecontainer:SetLayout("Flow")
 
-    local toolbar2 = GetBlockToolbar(version, falseKeyPath, treepath, true, flabel, falsecontainer, true, true, true)
+    local toolbar2, finalizeToolbar2 = GetBlockToolbar(version, falseKeyPath, treepath, true, flabel, falsecontainer, true, true, true)
+    finalizeToolbar2()
     falsegroup:AddChild(toolbar2)
 
     for key, act in ipairs(action[2]) do
@@ -657,7 +664,8 @@ local function renderEmbed(editframe, pcontainer, action, version, keyPath, tree
             macroPanel.frame:SetBackdrop(nil)
         end
     )
-    local linegroup1 = GetBlockToolbar(version, keyPath, treepath, includeAdd, hlabel, macroPanel)
+    local linegroup1, finalizeToolbar = GetBlockToolbar(version, keyPath, treepath, includeAdd, hlabel, macroPanel)
+    finalizeToolbar()
     macroPanel:AddChild(linegroup1)
     local SequenceDropDown = AceGUI:Create("Dropdown")
     SequenceDropDown:SetFullWidth(true)
@@ -1168,174 +1176,176 @@ local function DrawSequenceEditor(editframe, tcontainer, version, path, ChooseVe
             layoutcontainer:AddChild(addIfButton)
             layoutcontainer:AddChild(addEmbedButton)
         end
-        local spacerlabel3 = AceGUI:Create("Label")
-        spacerlabel3:SetWidth(30)
-        layoutcontainer:AddChild(spacerlabel3)
-        if GSE.isEmpty(disableMove) then
-            local disableBlock = AceGUI:Create("CheckBox")
-            disableBlock:SetType("checkbox")
-            disableBlock:SetWidth(130)
-            disableBlock:SetTriState(false)
-            disableBlock:SetLabel(L["Disable Block"])
-            layoutcontainer:AddChild(disableBlock)
-            disableBlock:SetValue(editframe.Sequence.Versions[version].Actions[path].Disabled)
-            local highlightTexture = container.frame:CreateTexture(nil, "BACKGROUND")
-            highlightTexture:SetAllPoints(true)
+        local function finalizeToolbar()
+            local spacerlabel3 = AceGUI:Create("Label")
+            spacerlabel3:SetWidth(30)
+            layoutcontainer:AddChild(spacerlabel3)
+            if GSE.isEmpty(disableMove) then
+                local disableBlock = AceGUI:Create("CheckBox")
+                disableBlock:SetType("checkbox")
+                disableBlock:SetWidth(130)
+                disableBlock:SetTriState(false)
+                disableBlock:SetLabel(L["Disable Block"])
+                layoutcontainer:AddChild(disableBlock)
+                disableBlock:SetValue(editframe.Sequence.Versions[version].Actions[path].Disabled)
+                local highlightTexture = container.frame:CreateTexture(nil, "BACKGROUND")
+                highlightTexture:SetAllPoints(true)
 
-            disableBlock:SetCallback(
-                "OnValueChanged",
-                function(sel, object, value)
-                    editframe.Sequence.Versions[version].Actions[path].Disabled = value
-                    if value == true then
-                        highlightTexture:SetColorTexture(1, 0, 0, 0.15)
-                    else
-                        highlightTexture:SetColorTexture(1, 0, 0, 0)
+                disableBlock:SetCallback(
+                    "OnValueChanged",
+                    function(sel, object, value)
+                        editframe.Sequence.Versions[version].Actions[path].Disabled = value
+                        if value == true then
+                            highlightTexture:SetColorTexture(1, 0, 0, 0.15)
+                        else
+                            highlightTexture:SetColorTexture(1, 0, 0, 0)
+                        end
                     end
+                )
+                if editframe.Sequence.Versions[version].Actions[path].Disabled == true then
+                    highlightTexture:SetColorTexture(1, 0, 0, 0.15)
+                else
+                    highlightTexture:SetColorTexture(1, 0, 0, 0)
                 end
-            )
-            if editframe.Sequence.Versions[version].Actions[path].Disabled == true then
-                highlightTexture:SetColorTexture(1, 0, 0, 0.15)
-            else
-                highlightTexture:SetColorTexture(1, 0, 0, 0)
+
+                container:SetCallback(
+                    "OnRelease",
+                    function(self, obj, value)
+                        highlightTexture:SetColorTexture(0, 0, 0, 0)
+                    end
+                )
+                disableBlock:SetCallback(
+                    "OnEnter",
+                    function()
+                        GSE.CreateToolTip(
+                            L["Disable Block"],
+                            L[
+                                "Disable this block so that it is not executed. If this is a container block, like a loop, all the blocks within it will also be disabled."
+                            ],
+                            editframe
+                        )
+                    end
+                )
+                disableBlock:SetCallback(
+                    "OnLeave",
+                    function()
+                        GSE.ClearTooltip(editframe)
+                    end
+                )
             end
+            local spacerlabel4 = AceGUI:Create("Label")
+            spacerlabel4:SetWidth(15)
+            layoutcontainer:AddChild(spacerlabel4)
+            if not disableDelete then
+                layoutcontainer:AddChild(deleteBlockButton)
+            end
+            local spacerlabel5 = AceGUI:Create("Label")
+            spacerlabel5:SetWidth(15)
+            layoutcontainer:AddChild(spacerlabel5)
 
-            container:SetCallback(
-                "OnRelease",
-                function(self, obj, value)
-                    highlightTexture:SetColorTexture(0, 0, 0, 0)
-                end
-            )
-            disableBlock:SetCallback(
-                "OnEnter",
-                function()
-                    GSE.CreateToolTip(
-                        L["Disable Block"],
-                        L[
-                            "Disable this block so that it is not executed. If this is a container block, like a loop, all the blocks within it will also be disabled."
-                        ],
-                        editframe
-                    )
-                end
-            )
-            disableBlock:SetCallback(
-                "OnLeave",
-                function()
-                    GSE.ClearTooltip(editframe)
-                end
-            )
-        end
-        local spacerlabel4 = AceGUI:Create("Label")
-        spacerlabel4:SetWidth(15)
-        layoutcontainer:AddChild(spacerlabel4)
-        if not disableDelete then
-            layoutcontainer:AddChild(deleteBlockButton)
-        end
-        local spacerlabel5 = AceGUI:Create("Label")
-        spacerlabel5:SetWidth(15)
-        layoutcontainer:AddChild(spacerlabel5)
+            local textpath = GSE.SafeConcat(path, ".")
+            local patheditbox = AceGUI:Create("EditBox")
+            if GSE.isEmpty(disableMove) then
+                patheditbox:SetLabel(L["Block Path"])
+                patheditbox:SetWidth(80)
+                patheditbox:SetCallback(
+                    "OnEnterPressed",
+                    function(obj, event, key)
+                        if not editframe.reloading then
+                            local destinationPath = GSE.split(key, ".")
+                            for k, v in ipairs(destinationPath) do
+                                destinationPath[k] = tonumber(v)
+                            end
+                            local testpath = GSE.CloneSequence(destinationPath)
+                            table.remove(testpath, #testpath)
+                            local sourcepath = GSE.CloneSequence(path)
+                            for k, v in ipairs(sourcepath) do
+                                sourcepath[k] = tonumber(v)
+                            end
+                            table.remove(sourcepath, #sourcepath)
+                            if #testpath > 0 then
+                                -- check that the path exists
+                                if
+                                    GSE.isEmpty(editframe.Sequence.Versions[version].Actions[testpath]) or
+                                        type(editframe.Sequence.Versions[version].Actions[testpath]) ~= "table"
+                                    then
+                                    GSE.Print(L["Error: Destination path not found."])
+                                    return
+                                end
+                            end
 
-        local textpath = GSE.SafeConcat(path, ".")
-        local patheditbox = AceGUI:Create("EditBox")
-        if GSE.isEmpty(disableMove) then
-            patheditbox:SetLabel(L["Block Path"])
-            patheditbox:SetWidth(80)
-            patheditbox:SetCallback(
-                "OnEnterPressed",
-                function(obj, event, key)
-                    if not editframe.reloading then
-                        local destinationPath = GSE.split(key, ".")
-                        for k, v in ipairs(destinationPath) do
-                            destinationPath[k] = tonumber(v)
-                        end
-                        local testpath = GSE.CloneSequence(destinationPath)
-                        table.remove(testpath, #testpath)
-                        local sourcepath = GSE.CloneSequence(path)
-                        for k, v in ipairs(sourcepath) do
-                            sourcepath[k] = tonumber(v)
-                        end
-                        table.remove(sourcepath, #sourcepath)
-                        if #testpath > 0 then
-                            -- check that the path exists
-                            if
-                                GSE.isEmpty(editframe.Sequence.Versions[version].Actions[testpath]) or
-                                    type(editframe.Sequence.Versions[version].Actions[testpath]) ~= "table"
-                                then
-                                GSE.Print(L["Error: Destination path not found."])
+                            if #sourcepath > 0 then
+                                -- check that the path exists  If this has happened we have a big problem
+                                if
+                                    GSE.isEmpty(editframe.Sequence.Versions[version].Actions[sourcepath]) or
+                                        type(editframe.Sequence.Versions[version].Actions[sourcepath]) ~= "table"
+                                    then
+                                    GSE.Print(L["Error: Source path not found."])
+                                    return
+                                end
+                            end
+
+                            if string.sub(key, 1, string.len(textpath)) == textpath then
+                                GSE.Print(L["Error: You cannot move a container to be a child within itself."])
                                 return
                             end
-                        end
 
-                        if #sourcepath > 0 then
-                            -- check that the path exists  If this has happened we have a big problem
-                            if
-                                GSE.isEmpty(editframe.Sequence.Versions[version].Actions[sourcepath]) or
-                                    type(editframe.Sequence.Versions[version].Actions[sourcepath]) ~= "table"
-                                then
-                                GSE.Print(L["Error: Source path not found."])
-                                return
+                            local insertActions =
+                                GSE.CloneSequence(editframe.Sequence.Versions[version].Actions[path])
+                            local endPoint = tonumber(destinationPath[#destinationPath])
+
+                            local pathPoint = tonumber(path[#path])
+
+                            if #sourcepath > 0 then
+                                table.remove(editframe.Sequence.Versions[version].Actions[sourcepath], pathPoint)
+                            else
+                                table.remove(editframe.Sequence.Versions[version].Actions, pathPoint)
                             end
-                        end
-
-                        if string.sub(key, 1, string.len(textpath)) == textpath then
-                            GSE.Print(L["Error: You cannot move a container to be a child within itself."])
-                            return
-                        end
-
-                        local insertActions =
-                            GSE.CloneSequence(editframe.Sequence.Versions[version].Actions[path])
-                        local endPoint = tonumber(destinationPath[#destinationPath])
-
-                        local pathPoint = tonumber(path[#path])
-
-                        if #sourcepath > 0 then
-                            table.remove(editframe.Sequence.Versions[version].Actions[sourcepath], pathPoint)
-                        else
-                            table.remove(editframe.Sequence.Versions[version].Actions, pathPoint)
-                        end
-                        if #testpath > 0 then
-                            if endPoint > #testpath + 1 then
-                                endPoint = #testpath + 1
+                            if #testpath > 0 then
+                                if endPoint > #testpath + 1 then
+                                    endPoint = #testpath + 1
+                                end
+                                table.insert(
+                                    editframe.Sequence.Versions[version].Actions[testpath],
+                                    endPoint,
+                                    insertActions
+                                )
+                            else
+                                if endPoint > #editframe.Sequence.Versions[version].Actions + 1 then
+                                    endPoint = #editframe.Sequence.Versions[version].Actions + 1
+                                end
+                                table.insert(editframe.Sequence.Versions[version].Actions, endPoint, insertActions)
                             end
-                            table.insert(
-                                editframe.Sequence.Versions[version].Actions[testpath],
-                                endPoint,
-                                insertActions
-                            )
-                        else
-                            if endPoint > #editframe.Sequence.Versions[version].Actions + 1 then
-                                endPoint = #editframe.Sequence.Versions[version].Actions + 1
-                            end
-                            table.insert(editframe.Sequence.Versions[version].Actions, endPoint, insertActions)
+                            ChooseVersion(tcontainer, version, editframe.scrollStatus.scrollvalue, treepath)
                         end
-                        ChooseVersion(tcontainer, version, editframe.scrollStatus.scrollvalue, treepath)
                     end
-                end
-            )
-            patheditbox:SetCallback(
-                "OnEnter",
-                function()
-                    GSE.CreateToolTip(
-                        L["Block Path"],
-                        L[
-                            "The block path shows the direct location of a block.  This can be edited to move a block to a different position quickly.  Each block is prefixed by its container.\nEG 2.3 means that the block is the third block in a container at level 2.  You can move a block into a container block by specifying the parent block.  You need to press the Okay button to move the block."
-                        ],
-                        editframe
-                    )
-                end
-            )
-            patheditbox:SetCallback(
-                "OnLeave",
-                function()
-                    GSE.ClearTooltip(editframe)
-                end
-            )
+                )
+                patheditbox:SetCallback(
+                    "OnEnter",
+                    function()
+                        GSE.CreateToolTip(
+                            L["Block Path"],
+                            L[
+                                "The block path shows the direct location of a block.  This can be edited to move a block to a different position quickly.  Each block is prefixed by its container.\nEG 2.3 means that the block is the third block in a container at level 2.  You can move a block into a container block by specifying the parent block.  You need to press the Okay button to move the block."
+                            ],
+                            editframe
+                        )
+                    end
+                )
+                patheditbox:SetCallback(
+                    "OnLeave",
+                    function()
+                        GSE.ClearTooltip(editframe)
+                    end
+                )
 
-            patheditbox:DisableButton(true)
+                patheditbox:DisableButton(true)
 
-            patheditbox:SetText(textpath)
-            layoutcontainer:AddChild(patheditbox)
+                patheditbox:SetText(textpath)
+                layoutcontainer:AddChild(patheditbox)
+            end
         end
-        return layoutcontainer
+        return layoutcontainer, finalizeToolbar
     end
 
     if GSE.isEmpty(editframe.Sequence.Versions[version].Actions) then

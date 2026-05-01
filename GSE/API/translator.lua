@@ -5,6 +5,38 @@ local GNOME = Statics.DebugModules["Translator"]
 
 local L = GSE.L
 
+local function findCurrentSpellOverride(spellID)
+    local numericSpellID = tonumber(spellID)
+    if not numericSpellID then
+        return nil
+    end
+    local finder = C_SpellBook and C_SpellBook.FindSpellOverrideByID or FindSpellOverrideByID
+    if not finder then
+        return nil
+    end
+    local ok, currentSpell = pcall(finder, numericSpellID)
+    if ok and currentSpell and currentSpell ~= 0 and currentSpell ~= numericSpellID then
+        return currentSpell
+    end
+    return nil
+end
+
+local function findBaseSpell(spellID)
+    local numericSpellID = tonumber(spellID)
+    if not numericSpellID then
+        return nil
+    end
+    local finder = C_SpellBook and C_SpellBook.FindBaseSpellByID or FindBaseSpellByID
+    if not finder then
+        return nil
+    end
+    local ok, baseSpell = pcall(finder, numericSpellID)
+    if ok and baseSpell and baseSpell ~= 0 then
+        return baseSpell
+    end
+    return nil
+end
+
 --- GSE.TranslateSequence will translate from local spell name to spell id and back again.\
 -- Mode of "STRING" will return local names where mode "ID" will return id's
 -- dropAbsolute will remove "$$" from the start of lines.
@@ -226,8 +258,7 @@ function GSE.TranslateSpell(str, mode, cleanNewLines, absolute)
             if GSEOptions.showCurrentSpells then
                 local test = tonumber(etc)
                 if test then
-                    local FindSpellOverrideByID = FindSpellOverrideByID or C_SpellBook.FindSpellOverrideByID
-                    local currentSpell = FindSpellOverrideByID(test)
+                    local currentSpell = findCurrentSpellOverride(test)
                     if currentSpell then
                         ---@diagnostic disable-next-line: cast-local-type
                         etc = currentSpell
@@ -336,16 +367,33 @@ function GSE.GetSpellId(spellstring, mode, absolute)
         GSESpellCache[GetLocale()] = {}
     end
     local returnval, name, rank, spellId
+    local lookupSpell = spellstring
+    local numericSpellString = tonumber(spellstring)
+    if mode ~= Statics.TranslatorMode.ID and not absolute then
+        local currentSpell = findCurrentSpellOverride(numericSpellString)
+        if currentSpell then
+            lookupSpell = currentSpell
+        end
+    end
 
-    local ok, spellinfo = pcall(C_Spell.GetSpellInfo, spellstring)
+    local ok, spellinfo = C_Spell and C_Spell.GetSpellInfo and pcall(C_Spell.GetSpellInfo, lookupSpell)
     if not ok then spellinfo = nil end
+    if spellinfo and mode ~= Statics.TranslatorMode.ID and not absolute then
+        local currentSpell = findCurrentSpellOverride(spellinfo.spellID)
+        if currentSpell then
+            local overrideOk, overrideInfo = C_Spell and C_Spell.GetSpellInfo and pcall(C_Spell.GetSpellInfo, currentSpell)
+            if overrideOk and overrideInfo then
+                spellinfo = overrideInfo
+            end
+        end
+    end
     if not spellinfo then
         if type(spellstring) == "string" then
             ---@diagnostic disable-next-line: missing-fields
             spellinfo = {}
             spellinfo.name = spellstring
-            if GSESpellCache[GetLocale()][spellinfo] then
-                spellinfo.spellID = GSESpellCache[GetLocale()][spellinfo]
+            if GSESpellCache[GetLocale()][spellstring] then
+                spellinfo.spellID = GSESpellCache[GetLocale()][spellstring]
             end
         else
             -- Numeric spell ID that the client doesn't know about: nothing
@@ -366,9 +414,9 @@ function GSE.GetSpellId(spellstring, mode, absolute)
         returnval = spellId
         -- Check for overrides like Crusade and Avenging Wrath.
         if not absolute and not GSE.isEmpty(returnval) then
-            local FindBaseSpellByID =  C_SpellBook.FindBaseSpellByID or  FindBaseSpellByID
-            if FindBaseSpellByID(returnval) then
-                returnval = FindBaseSpellByID(returnval)
+            local baseSpell = findBaseSpell(returnval)
+            if baseSpell then
+                returnval = baseSpell
             -- if type(returnval) == "table" then
             --     returnval = returnval.spellID
             -- end

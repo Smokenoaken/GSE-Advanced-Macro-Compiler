@@ -93,9 +93,17 @@ local function showMacro(editframe, node, container)
         "OnEnterPressed",
         function(self, _, text)
             local slot = GetMacroIndexByName(node.name)
-            if slot then
+            if slot and slot > 0 and not GSE.isEmpty(text) then
+                local oldName = node.name
                 EditMacro(slot, text)
+                if oldName ~= text then
+                    source[text] = source[oldName] or node
+                    source[oldName] = nil
+                end
                 node.name = text
+                if source[node.name] then
+                    source[node.name].name = text
+                end
             end
         end
     )
@@ -237,7 +245,8 @@ local function showMacro(editframe, node, container)
         managedMacro:SetCallback(
             "OnTextChanged",
             function(self, _, text)
-                editframe:SetStatusText(L["Save pending for "] .. node.name)
+                local statusText = L["Save pending for "] .. node.name
+                editframe:SetStatusText(statusText)
                 source[node.name].managedMacro = GSE.CompileMacroText(text, Statics.TranslatorMode.ID)
                 local compiled = GSE.CompileMacroText(text, Statics.TranslatorMode.String)
                 compiledMacro:SetText(compiled)
@@ -245,7 +254,7 @@ local function showMacro(editframe, node, container)
                 local oocaction = {
                     ["action"] = "updatemacro",
                     ["node"] = source[node.name],
-                    ["status"] = editframe:SetStatusText()
+                    ["status"] = statusText
                 }
                 GSE.EnqueueOOC(oocaction)
             end
@@ -317,12 +326,13 @@ local function showMacro(editframe, node, container)
         macro:SetCallback(
             "OnEnterPressed",
             function(self, _, text)
-                editframe:SetStatusText(L["Save pending for "] .. node.name)
+                local statusText = L["Save pending for "] .. node.name
+                editframe:SetStatusText(statusText)
                 node.text = GSE.CompileMacroText(text, Statics.TranslatorMode.String)
                 local oocaction = {
                     ["action"] = "updatemacro",
                     ["node"] = node,
-                    ["status"] = editframe:SetStatusText()
+                    ["status"] = statusText
                 }
                 GSE.EnqueueOOC(oocaction)
             end

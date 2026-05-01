@@ -141,6 +141,7 @@ function GSE.CreateEditor()
     if GSE.GUI.editors[1] and not GSE.Patron then
         return GSE.GUI.editors[1]
     end
+    local existingEditorCount = #GSE.GUI.editors
     local editframe = AceGUI:Create("Frame")
     table.insert(GSE.GUI.editors, editframe)
     editframe:Hide()
@@ -211,12 +212,11 @@ function GSE.CreateEditor()
         local editorleft = GSEOptions.frameLocations.sequenceeditor.left
         local editortop = GSEOptions.frameLocations.sequenceeditor.top
 
-        if #GSE.GUI.editors > 0 then
-            editorleft = editorleft + FRAME_DISPLACEMENT
-            editortop = editortop - FRAME_DISPLACEMENT
+        if existingEditorCount > 0 then
+            local editorOffset = FRAME_DISPLACEMENT * existingEditorCount
+            editorleft = editorleft + editorOffset
+            editortop = editortop - editorOffset
             editframe:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", editorleft, editortop)
-            GSEOptions.frameLocations.sequenceeditor.left = editorleft
-            GSEOptions.frameLocations.sequenceeditor.top = editortop
         else
             editframe:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", editorleft, editortop)
         end
@@ -1144,6 +1144,7 @@ function GSE.CreateEditor()
             hlabelIcon.image:SetPoint("BOTTOMLEFT", hlabelIcon.frame, "BOTTOMLEFT", 0, 3)
             hlabelIcon.frame:EnableMouse(false)
             hlabelIcon:SetCallback("OnRelease", function(self)
+                self.frame:EnableMouse(true)
                 self.image:SetDesaturated(false)
                 self.image:ClearAllPoints()
                 self.image:SetPoint("TOP", 0, -5)
@@ -2180,7 +2181,7 @@ function GSE.CreateEditor()
                 }
                 -- setmetatable(newAction, Statics.TableMetadataFunction)
                 table.insert(editframe.Sequence.Versions[version].Actions, 1, newAction)
-                if not editframe.scrollstatus then
+                if not editframe.scrollStatus then
                     editframe.scrollStatus = {}
                 end
                 editframe.scrollStatus.scrollvalue = 1
@@ -2585,6 +2586,9 @@ function GSE.CreateEditor()
     GSE.GUI.SetupKeybind(editframe)
     GSE.GUI.SetupMacro(editframe)
     GSE.GUI.SetupTree(editframe)
+    if GSE.GUI.SetupActions then
+        GSE.GUI.SetupActions(editframe, ChooseVersion)
+    end
 
     function editframe:remoteSequenceUpdated(seqName)
         if seqName == editframe.SequenceName then
@@ -2727,10 +2731,24 @@ function GSE.GUILoadEditor(editor, key, recordedstring)
     local classid = tonumber(elements[1])
     local sequenceName = elements[3]
 
-    local _, seq = GSE.DecodeMessage(GSESequences[classid][sequenceName])
+    local classSequences = classid and GSESequences[classid]
+    local encodedSequence = classSequences and sequenceName and classSequences[sequenceName]
+    if GSE.isEmpty(encodedSequence) then
+        editor:SetStatusText("GSE: " .. GSE.VersionString)
+        GSE.Print("GSE: Unable to load sequence " .. tostring(sequenceName))
+        return
+    end
+
+    local _, seq = GSE.DecodeMessage(encodedSequence)
     local sequence
     if seq then
         sequence = seq[2]
+    end
+
+    if GSE.isEmpty(sequence) then
+        editor:SetStatusText("GSE: " .. GSE.VersionString)
+        GSE.Print("GSE: Unable to decode sequence " .. tostring(sequenceName))
+        return
     end
 
     if GSE.isEmpty(sequence.WeakAuras) then

@@ -14,12 +14,12 @@ GSE.WagoAnalytics = LibStub("WagoAnalytics"):Register("kGr0YY6y")
 
 GSE.VersionString = C_AddOns.GetAddOnMetadata("GSE", "Version")
 
---@debug@
+--[==[@debug@
 if GSE.VersionString:find("version") then
     GSE.VersionString = "3.3.00-development"
     GSE.Developer = true
 end
---@end-debug@
+--@end-debug@]==]
 
 if GSE.VersionString:find("Patron") then
     GSE.Patron = true

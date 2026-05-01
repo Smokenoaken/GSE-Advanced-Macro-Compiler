@@ -842,10 +842,17 @@ end
 
 --- This function resets a gsebutton back to its initial setting
 function GSE.ResetButtons()
+    if GSE.isEmpty(GSE.UsedSequences) then
+        return
+    end
     for k, _ in pairs(GSE.UsedSequences) do
         local gsebutton = _G[k]
-        gsebutton:SetAttribute("step", 1)
-        GSE.UpdateIcon(gsebutton, true)
+        if gsebutton then
+            gsebutton:SetAttribute("step", 1)
+            GSE.UpdateIcon(gsebutton, true)
+        else
+            GSE.PrintDebugMessage("Skipping stale used sequence button " .. tostring(k), Statics.DebugModules["Storage"])
+        end
         GSE.UsedSequences[k] = nil
     end
 end
@@ -1316,21 +1323,28 @@ function GSE.CompressSequenceFromString(importstring)
   return Sequences
   ]===]
 
-    local fake_globals =
-        setmetatable(
-        {
-            Sequences = {}
-        },
-        {
-            __index = _G
-        }
-    )
+    local fake_globals = { Sequences = {} }
+    setmetatable(fake_globals, {
+        __index = function(_, key)
+            error("Unexpected global in import: " .. tostring(key), 2)
+        end,
+        __newindex = function(t, key, value)
+            if key == "Sequences" then
+                rawset(t, key, value)
+            else
+                error("Unexpected global assignment in import: " .. tostring(key), 2)
+            end
+        end
+    })
     local func, err = loadstring(functiondefinition, "Storage")
     if func then
-        -- Make the compiled function see this table as its "globals"
         setfenv(func, fake_globals)
 
-        local TempSequences = assert(func())
+        local ok, TempSequences = pcall(func)
+        if not ok then
+            GSE.PrintDebugMessage("Legacy import load error: " .. tostring(TempSequences), "Storage")
+            return returnstr
+        end
         if not GSE.isEmpty(TempSequences) then
             for k, v in pairs(TempSequences) do
                 returnstr = GSE.ExportSequence(v, k, false, "ID", false)
@@ -1925,15 +1939,31 @@ function GSE.UpdateVariable(variable, name, status)
     GSE.ComputeVariableDependencies(variable)
     local compressedvariable = GSE.EncodeMessage(variable)
     GSEVariables[name] = compressedvariable
-    local actualfunct, error = loadstring("return " .. variable.funct)
-    if error then
-        print(error)
+    local booleanKey = "GSE.V['" .. name .. "']()"
+    GSE.BooleanVariables[booleanKey] = nil
+
+    local actualfunct, loadErr = loadstring("return " .. variable.funct)
+    if loadErr then
+        print(loadErr)
+        GSE.V[name] = nil
+    elseif type(actualfunct) == "function" then
+        local ok, result = pcall(actualfunct)
+        if ok then
+            GSE.V[name] = result
+        else
+            GSE.V[name] = nil
+            GSE.Print(L["There was an error processing "] .. name, L["Variables"])
+            GSE.Print(result, L["Variables"])
+        end
     end
-    if type(actualfunct) == "function" then
-        GSE.V[name] = actualfunct()
-    end
-    if GSE.V[name] and type(GSE.V[name]()) == "boolean" then
-        GSE.BooleanVariables["GSE.V['" .. name .. "']()"] = "GSE.V['" .. name .. "']()"
+    if type(GSE.V[name]) == "function" then
+        local ok, variableResult = pcall(GSE.V[name])
+        if ok and type(variableResult) == "boolean" then
+            GSE.BooleanVariables[booleanKey] = booleanKey
+        elseif not ok then
+            GSE.Print(L["There was an error processing "] .. name, L["Variables"])
+            GSE.Print(variableResult, L["Variables"])
+        end
     end
     -- Re-register or remove event/message callbacks based on updated variable config
     if variable.eventEnabled and not GSE.isEmpty(variable.eventNames) then
@@ -2060,7 +2090,7 @@ function GSE.ManageMacros()
             GSE.UpdateMacro(node)
         else
             local slot = GetMacroIndexByName(k)
-            if slot then
+            if slot and slot > 0 then
                 local mname, micon, mbody = GetMacroInfo(slot)
                 if mname then
                     GSEMacros[mname] = {
@@ -2108,7 +2138,7 @@ function GSE.ManageMacros()
                     GSE.UpdateMacro(node)
                 else
                     local slot = GetMacroIndexByName(k)
-                    if slot then
+                    if slot and slot > 0 then
                         local mname, micon, mbody = GetMacroInfo(slot)
                         if mname then
                             GSEMacros[char .. "-" .. realm][mname] = {

@@ -49,6 +49,14 @@ function GSE.TraceSequence(button, step, spell, blockPath)
         end
 
         local fullBlock = blockPath and (GSEOptions.EmphasisColour .. " block:" .. blockPath .. Statics.StringReset) or ""
+        local assistedCastOutput = ""
+        if C_AssistedCombat and C_AssistedCombat.GetNextCastSpell and C_Spell and C_Spell.GetSpellInfo then
+            local nextCast = C_AssistedCombat.GetNextCastSpell()
+            local nextInfo = nextCast and C_Spell.GetSpellInfo(nextCast)
+            if nextInfo and nextInfo.name then
+                assistedCastOutput = nextInfo.name .. ","
+            end
+        end
 
         GSE.PrintDebugMessage(
             table.concat(
@@ -71,7 +79,7 @@ function GSE.TraceSequence(button, step, spell, blockPath)
                     GCDOutput,
                     ",",
                     CastingOutput,
-                    C_AssistedCombat and C_Spell.GetSpellInfo(C_AssistedCombat.GetNextCastSpell()).name .. "," or "",
+                    assistedCastOutput,
                     fullBlock
                 }
             ),
@@ -83,13 +91,14 @@ end
 function GSE:UNIT_SPELLCAST_SUCCEEDED(event, unit, action, sped)
     if unit == "player" then
         local GCD_Timer
-        local elements = GSE.split(action, "-")
+        local elements = action and GSE.split(action, "-") or {}
+        local spellid = elements[6]
         if GSE.GameMode > 1 then
-            if C_Spell.GetSpellCooldown then
+            if C_Spell and C_Spell.GetSpellCooldown then
                 if GSE.GameMode > 11 then
-                    local spellid = elements[6]
-                    local potentialGCD = C_Spell.GetSpellCooldown(spellid)["duration"]
-                    if issecretvalue(potentialGCD)then
+                    local cooldownInfo = spellid and C_Spell.GetSpellCooldown(spellid)
+                    local potentialGCD = cooldownInfo and cooldownInfo["duration"]
+                    if not potentialGCD or issecretvalue(potentialGCD) then
                         GCD_Timer = GSE.GetGCD()
                     else
                         GCD_Timer = potentialGCD
@@ -105,6 +114,7 @@ function GSE:UNIT_SPELLCAST_SUCCEEDED(event, unit, action, sped)
         else
             GCD_Timer = 1.5
         end
+        GCD_Timer = tonumber(GCD_Timer) or GSE.GetGCD() or 1.5
         GCD = true
 
         C_Timer.After(
@@ -121,10 +131,13 @@ function GSE:UNIT_SPELLCAST_SUCCEEDED(event, unit, action, sped)
         if GSE.GameMode > 10 then
             local spell
 
-            local found = C_SpellBook.FindSpellBookSlotForSpell(elements[6])
+            local found = spellid and C_SpellBook and C_SpellBook.FindSpellBookSlotForSpell(spellid)
             if found then
-                foundskill = true
-                spell = C_Spell.GetSpellInfo(elements[6]).name
+                local spellInfo = C_Spell and C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(spellid)
+                if spellInfo and spellInfo.name then
+                    foundskill = true
+                    spell = spellInfo.name
+                end
             end
             if foundskill then
                 if GSE.RecorderActive then
@@ -134,7 +147,7 @@ function GSE:UNIT_SPELLCAST_SUCCEEDED(event, unit, action, sped)
                 end
             end
         else
-            local spellInfo = C_Spell.GetSpellInfo(elements[6])
+            local spellInfo = spellid and C_Spell and C_Spell.GetSpellInfo and C_Spell.GetSpellInfo(spellid)
             local spell = spellInfo and spellInfo.name
             local fskilltype = spell and GetSpellBookItemInfo(spell)
             if not GSE.isEmpty(fskilltype) then

@@ -2,7 +2,7 @@
 ## Title: |cFFFFFFFFGS|r|cFF00FFFFE|r |cFF808080Utility Functions|r
 ## Notes: Optional Utilities for GSE
 ## Author: TimothyLuke
-## Version: @project-version@
+## Version: 3.3.15-3-g957b77f-PatronBuild
 ## Dependencies: GSE
 ## IconTexture: Interface\Addons\GSE_GUI\Assets\GSE_Logo_Dark_512
 ## Category-enUS: Combat

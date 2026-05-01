@@ -703,7 +703,9 @@ local function showKeybind(editframe, bind, button, specialization, loadout, typ
                         showKeybind(editframe, bind, button, specialization, loadout, "AO", rightContainer)
                     end
                     GSE.ReloadOverrides()
-                    GSE.UpdateIcon(_G[button.Sequence])
+                    if button.Sequence and _G[button.Sequence] then
+                        GSE.UpdateIcon(_G[button.Sequence])
+                    end
                     editframe.ManageTree()
                     if loadout ~= "ALL" and loadout then
                         if GetSpecialization then
@@ -739,11 +741,11 @@ local function showKeybind(editframe, bind, button, specialization, loadout, typ
                 else
                     GSE_C["ActionBarBinds"]["Specialisations"][tostring(specialization)][bind] = nil
                 end
-                GSE.ButtonOverrides[bind] = nil
-                _G[bind]:SetAttribute("gse-button", nil)
-                _G[bind]:SetAttribute("type", "action")
-                SecureHandlerUnwrapScript(_G[bind], "OnClick")
-                SecureHandlerUnwrapScript(_G[bind], "OnEnter")
+                if InCombatLockdown() then
+                    GSE.Print("GSE: Actionbar override removal will finish when combat ends.")
+                else
+                    GSE.ReloadOverrides()
+                end
                 rightContainer:ReleaseChildren()
                 editframe.ManageTree()
             end

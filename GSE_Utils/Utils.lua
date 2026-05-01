@@ -1793,11 +1793,23 @@ function GSE:GSSlash(input)
         end
     elseif string.lower(command) == "bind" then
         -- /gse bind spec sequence key
-        local spec = tostring(params[2])
-        local sequence = tostring(params[3])
-        local physicalkey = tostring(params[4])
-        if spec and sequence and physicalkey then
-            GSE_C["KeyBindings"][tostring(spec)][physicalkey] = sequence
+        local spec = params[2]
+        local sequence = params[3]
+        local physicalkey = params[4]
+        if not GSE.isEmpty(spec) and not GSE.isEmpty(sequence) and not GSE.isEmpty(physicalkey) then
+            spec = tostring(spec)
+            sequence = tostring(sequence)
+            physicalkey = tostring(physicalkey)
+            if GSE.isEmpty(GSE_C) then
+                GSE_C = {}
+            end
+            if GSE.isEmpty(GSE_C["KeyBindings"]) then
+                GSE_C["KeyBindings"] = {}
+            end
+            if GSE.isEmpty(GSE_C["KeyBindings"][spec]) then
+                GSE_C["KeyBindings"][spec] = {}
+            end
+            GSE_C["KeyBindings"][spec][physicalkey] = sequence
             GSE.ReloadKeyBindings()
         else
            GSE.Print("Invalid Bind - /gse bind spec sequence key")

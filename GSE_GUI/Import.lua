@@ -360,6 +360,20 @@ end
 -- file, after renderImportsPage and renderDeletesPage are defined.
 local processQueue
 
+local function queueItemKey(item, index)
+  if GSE.CompanionIdentityKey then
+    local key = GSE.CompanionIdentityKey(item)
+    if key then return key end
+  end
+  if type(item) == "table" then
+    local contentType = item.contentType or "sequence"
+    local name = item.name or ""
+    local checksum = item.checksum or item._id or tostring(index or "")
+    return contentType .. ":" .. name .. ":" .. checksum
+  end
+  return tostring(index or "")
+end
+
 -- Render a list of decoded collections (each with its own heading) and a single
 -- Import button that re-encodes and imports each collection separately.
 -- collections: array of { name=string, payload={Sequences,Variables,Macros,ElementCount} }
@@ -471,7 +485,8 @@ local function processQueueCollections(collections)
   importbutton:SetText(L["Import"])
   importbutton:SetCallback("OnClick", function()
     local anyFailed = false
-    local successByName = {}
+    local successByQueueKey = {}
+    local failedByQueueKey = {}
     -- Group each collection's checked items into 3 action buckets. Ignore
     -- entries are excluded from the buckets entirely — they get marked as
     -- imported (so they don't return) without producing any storage
@@ -534,10 +549,14 @@ local function processQueueCollections(collections)
       -- IncomingQueue item gets marked) when every non-Ignore action
       -- succeeded, OR when every action was Ignore (the user explicitly
       -- dismissed the whole entry).
+      local queueKey = col.queueKey or col.name or ""
       if hadAnyAction and colSuccess then
-        successByName[col.name or ""] = true
+        successByQueueKey[queueKey] = true
       end
-      if not colSuccess then anyFailed = true end
+      if not colSuccess then
+        failedByQueueKey[queueKey] = true
+        anyFailed = true
+      end
     end
     if importframe._fromQueue then
       local pageSize = importframe._pageSize or 0
@@ -547,7 +566,8 @@ local function processQueueCollections(collections)
         -- next dialog open / next /reload.
         for idx = 1, pageSize do
           local item = GSE.IncomingQueue[idx]
-          if item and successByName[item.name or ""] then
+          local key = queueItemKey(item, idx)
+          if item and successByQueueKey[key] and not failedByQueueKey[key] then
             GSE.CompanionMarkImported(item)
           end
         end
@@ -601,6 +621,7 @@ local function renderImportsPage()
       if ok and collection.type == "COLLECTION" then
         table.insert(collections, {
           name    = item.name or seqName,
+          queueKey = queueItemKey(item, idx),
           payload = collection.payload,
         })
       end
