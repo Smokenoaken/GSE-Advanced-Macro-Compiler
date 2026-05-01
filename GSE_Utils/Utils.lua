@@ -1653,7 +1653,7 @@ function GSE.PrintGnomeHelp()
         L["The command "] ..
             GSEOptions.CommandColour ..
                 L[
-                    "/gse clearoverrides|r will clear all actionbar overrides for your current spec and talent loadouts."
+                    "/gse clearoverrides|r will clear all saved actionbar overrides on this character and report what was removed."
                 ],
         GNOME
     )

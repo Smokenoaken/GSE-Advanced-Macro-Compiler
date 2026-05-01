@@ -88,6 +88,7 @@ L["Sequence Disabled"] = true
 L["Actionbar Overrides: The following CVars were automatically set to false as they interfere with Actionbar Overrides: "] = true
 L["A UI reload is required for the MultiClickButtons change to take effect.  Type /reload when convenient."] = true
 L["Cleared %d actionbar override(s) for this spec and its loadouts."] = true
+L["No saved actionbar overrides were found on this character."] = true
 
 L["Show a sequence picker popup when right-clicking an empty actionbar button outside of combat."] = true
 L["Enter a name for the new sequence:"] = true
@@ -860,7 +861,7 @@ L[
         "/gse checksequencesforerrors|r will loop through your macros and check for corrupt macro versions.  This will then show how to correct these issues."
     ] = true
 L[
-        "/gse clearoverrides|r will clear all actionbar overrides for your current spec and talent loadouts."
+        "/gse clearoverrides|r will clear all saved actionbar overrides on this character and report what was removed."
     ] = true
 L[
         "/gse clearincoming|r will abort any pending GSE Companion updates without importing them, and tell the Companion to prune them."

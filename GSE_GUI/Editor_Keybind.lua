@@ -139,7 +139,12 @@ local function buildKeybindMenu()
                 end
             end
         end
-        if GetSpecializationInfo then
+        if #node["children"] == 0 then
+            GSE_C["ActionBarBinds"]["Specialisations"][k] = nil
+            if GSE_C["ActionBarBinds"]["LoadOuts"] then
+                GSE_C["ActionBarBinds"]["LoadOuts"][k] = nil
+            end
+        elseif GetSpecializationInfo then
             table.insert(tree[1]["children"], node)
         end
     end

@@ -751,31 +751,58 @@ function GSE.ClearAllActionBarOverrides()
         GSE_C["ActionBarBinds"] = {}
     end
 
-    local spec = GetSpec()
     local removed = 0
+    local removedGroups = {}
     local actionBarBinds = GSE_C["ActionBarBinds"]
 
-    if actionBarBinds["Specialisations"] and actionBarBinds["Specialisations"][spec] then
-        for _ in pairs(actionBarBinds["Specialisations"][spec]) do
-            removed = removed + 1
-        end
-        actionBarBinds["Specialisations"][spec] = {}
-    end
-
-    if actionBarBinds["LoadOuts"] and actionBarBinds["LoadOuts"][spec] then
-        for _, loadout in pairs(actionBarBinds["LoadOuts"][spec]) do
-            if type(loadout) == "table" then
-                for _ in pairs(loadout) do
+    if actionBarBinds["Specialisations"] then
+        for spec, buttons in pairs(actionBarBinds["Specialisations"]) do
+            local specRemoved = {}
+            if type(buttons) == "table" then
+                for buttonName, bind in pairs(buttons) do
                     removed = removed + 1
+                    local sequenceName = type(bind) == "table" and bind.Sequence or tostring(bind)
+                    table.insert(specRemoved, buttonName .. "->" .. tostring(sequenceName))
                 end
             end
+            if #specRemoved > 0 then
+                removedGroups["Spec " .. tostring(spec)] = specRemoved
+            end
+            actionBarBinds["Specialisations"][spec] = nil
         end
-        actionBarBinds["LoadOuts"][spec] = {}
+    end
+
+    if actionBarBinds["LoadOuts"] then
+        for spec, loadouts in pairs(actionBarBinds["LoadOuts"]) do
+            if type(loadouts) == "table" then
+                for loadoutID, buttons in pairs(loadouts) do
+                    local loadoutRemoved = {}
+                    if type(buttons) == "table" then
+                        for buttonName, bind in pairs(buttons) do
+                            removed = removed + 1
+                            local sequenceName = type(bind) == "table" and bind.Sequence or tostring(bind)
+                            table.insert(loadoutRemoved, buttonName .. "->" .. tostring(sequenceName))
+                        end
+                    end
+                    if #loadoutRemoved > 0 then
+                        removedGroups["Spec " .. tostring(spec) .. " Loadout " .. tostring(loadoutID)] = loadoutRemoved
+                    end
+                end
+            end
+            actionBarBinds["LoadOuts"][spec] = nil
+        end
     end
 
     GSE.ButtonOverrides = {}
     GSE.ReloadOverrides(true)
     GSE.Print(string.format(L["Cleared %d actionbar override(s) for this spec and its loadouts."], removed), GNOME)
+    if removed > 0 then
+        for groupName, groupEntries in GSE.pairsByKeys(removedGroups) do
+            GSE.Print(groupName .. ": " .. table.concat(groupEntries, ", "), GNOME)
+        end
+    else
+        GSE.Print(L["No saved actionbar overrides were found on this character."], GNOME)
+    end
     return true
 end
 
