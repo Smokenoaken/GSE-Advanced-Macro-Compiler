@@ -1653,6 +1653,14 @@ function GSE.PrintGnomeHelp()
         L["The command "] ..
             GSEOptions.CommandColour ..
                 L[
+                    "/gse clearoverrides|r will clear all actionbar overrides for your current spec and talent loadouts."
+                ],
+        GNOME
+    )
+    GSE.Print(
+        L["The command "] ..
+            GSEOptions.CommandColour ..
+                L[
                     "/gse clearincoming|r will abort any pending GSE Companion updates without importing them, and tell the Companion to prune them."
                 ],
         GNOME
@@ -1761,6 +1769,8 @@ function GSE:GSSlash(input)
         StaticPopup_Show("GSE_ConfirmReloadUIDialog")
     elseif command == "movelostmacros" then
         GSE.MoveMacroToClassFromGlobal()
+    elseif command == "clearoverrides" then
+        GSE.ClearAllActionBarOverrides()
     elseif command == "checksequencesforerrors" then
         GSE.ScanMacrosForErrors()
     elseif command == "compressstring" then

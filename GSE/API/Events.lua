@@ -738,6 +738,47 @@ function GSE.RemoveActionBarOverride(buttonName)
     GSE.ReloadOverrides()
 end
 
+function GSE.ClearAllActionBarOverrides()
+    if InCombatLockdown() then
+        GSE.Print("You cannot clear actionbar overrides while in combat.", GNOME)
+        return false
+    end
+
+    if GSE.isEmpty(GSE_C) then
+        GSE_C = {}
+    end
+    if GSE.isEmpty(GSE_C["ActionBarBinds"]) then
+        GSE_C["ActionBarBinds"] = {}
+    end
+
+    local spec = GetSpec()
+    local removed = 0
+    local actionBarBinds = GSE_C["ActionBarBinds"]
+
+    if actionBarBinds["Specialisations"] and actionBarBinds["Specialisations"][spec] then
+        for _ in pairs(actionBarBinds["Specialisations"][spec]) do
+            removed = removed + 1
+        end
+        actionBarBinds["Specialisations"][spec] = {}
+    end
+
+    if actionBarBinds["LoadOuts"] and actionBarBinds["LoadOuts"][spec] then
+        for _, loadout in pairs(actionBarBinds["LoadOuts"][spec]) do
+            if type(loadout) == "table" then
+                for _ in pairs(loadout) do
+                    removed = removed + 1
+                end
+            end
+        end
+        actionBarBinds["LoadOuts"][spec] = {}
+    end
+
+    GSE.ButtonOverrides = {}
+    GSE.ReloadOverrides(true)
+    GSE.Print(string.format(L["Cleared %d actionbar override(s) for this spec and its loadouts."], removed), GNOME)
+    return true
+end
+
 function GSE.ReloadKeyBindings()
     LoadKeyBindings(true)
 end
