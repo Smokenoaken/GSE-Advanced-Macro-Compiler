@@ -262,6 +262,66 @@ function GSE.SetActionBarWatermarkEnabled(enabled)
     end
 end
 
+local function tableHasEntries(t)
+    return type(t) == "table" and next(t) ~= nil
+end
+
+function GSE.PruneEmptyActionBarOverrideContainers()
+    if GSE.isEmpty(GSE_C) or GSE.isEmpty(GSE_C["ActionBarBinds"]) then
+        return false
+    end
+
+    local changed = false
+    local actionBarBinds = GSE_C["ActionBarBinds"]
+
+    for _, bucketName in ipairs({"Specialisations", "LoadOuts"}) do
+        local bucket = actionBarBinds[bucketName]
+        if type(bucket) == "table" then
+            for spec, specData in pairs(bucket) do
+                if bucketName == "LoadOuts" and type(specData) == "table" then
+                    for loadout, loadoutData in pairs(specData) do
+                        if not tableHasEntries(loadoutData) then
+                            specData[loadout] = nil
+                            changed = true
+                        end
+                    end
+                end
+                if not tableHasEntries(specData) then
+                    bucket[spec] = nil
+                    changed = true
+                end
+            end
+            if not tableHasEntries(bucket) then
+                actionBarBinds[bucketName] = nil
+                changed = true
+            end
+        end
+    end
+
+    if not tableHasEntries(actionBarBinds) then
+        GSE_C["ActionBarBinds"] = nil
+        changed = true
+    end
+
+    return changed
+end
+
+local function getCurrentSpecActionBarOverrides()
+    local spec = GetSpec()
+    local actionBarBinds = GSE_C and GSE_C["ActionBarBinds"] or nil
+    local specOverrides = actionBarBinds and actionBarBinds["Specialisations"] and actionBarBinds["Specialisations"][spec] or nil
+    local loadoutOverrides = nil
+
+    if C_ClassTalents and C_ClassTalents.GetLastSelectedSavedConfigID then
+        local selected = playerSpec() and tostring(C_ClassTalents.GetLastSelectedSavedConfigID(playerSpec()))
+        if selected and actionBarBinds and actionBarBinds["LoadOuts"] and actionBarBinds["LoadOuts"][spec] then
+            loadoutOverrides = actionBarBinds["LoadOuts"][spec][selected]
+        end
+    end
+
+    return specOverrides, loadoutOverrides
+end
+
 
 -- Restore the GSE macro icon on a button, deferring one frame so WoW's own
 -- ActionButton_Update pass (triggered by type/attribute changes) runs first.
@@ -574,26 +634,11 @@ local function LoadOverrides(force)
     if GSE.isEmpty(GSE.ButtonOverrides) then
         GSE.ButtonOverrides = {}
     end
-    if GSE.isEmpty(GSE_C["ActionBarBinds"]) then
-        GSE_C["ActionBarBinds"] = {}
-    end
-    if GSE.isEmpty(GSE_C["ActionBarBinds"]["Specialisations"]) then
-        GSE_C["ActionBarBinds"]["Specialisations"] = {}
-    end
-    if GSE.isEmpty(GSE_C["ActionBarBinds"]["Specialisations"][GetSpec()]) then
-        GSE_C["ActionBarBinds"]["Specialisations"][GetSpec()] = {}
-    end
-    if GSE.isEmpty(GSE_C["ActionBarBinds"]["LoadOuts"]) then
-        GSE_C["ActionBarBinds"]["LoadOuts"] = {}
-    end
-    if GSE.isEmpty(GSE_C["ActionBarBinds"]["LoadOuts"][GetSpec()]) then
-        GSE_C["ActionBarBinds"]["LoadOuts"][GetSpec()] = {}
-    end
+    GSE.PruneEmptyActionBarOverrideContainers()
     -- If any overrides are configured, ensure the CVars that block them are off.
     -- SetCVar is not combat-restricted so this runs regardless of lockdown state.
-    -- Note: GSE.isEmpty only tests for nil/"", so use next() to detect a non-empty table.
-    local specOverrides = GSE_C["ActionBarBinds"]["Specialisations"][GetSpec()]
-    if specOverrides and next(specOverrides) ~= nil then
+    local specOverrides, loadoutOverrides = getCurrentSpecActionBarOverrides()
+    if tableHasEntries(specOverrides) or tableHasEntries(loadoutOverrides) then
         ensureActionBarCVars()
     end
     if not InCombatLockdown() then
@@ -625,18 +670,17 @@ local function LoadOverrides(force)
         end
         GSE.ButtonOverrides = {}
 
-        for _, v in pairs(GSE_C["ActionBarBinds"]["Specialisations"][GetSpec()]) do
+        for _, v in pairs(specOverrides or {}) do
             overrideActionButton(v, force)
         end
         if C_ClassTalents and C_ClassTalents.GetLastSelectedSavedConfigID then
             local selected = playerSpec() and tostring(C_ClassTalents.GetLastSelectedSavedConfigID(playerSpec()))
 
             if
-                selected and GSE_C["ActionBarBinds"]["LoadOuts"][GetSpec()] and
-                    GSE_C["ActionBarBinds"]["LoadOuts"][GetSpec()][selected]
+                selected and loadoutOverrides
              then
                 GSE.PrintDebugMessage("changing from " .. tostring(GSE.GetSelectedLoadoutConfigID()), "EVENTS")
-                for _, v in pairs(GSE_C["ActionBarBinds"]["LoadOuts"][GetSpec()][selected]) do
+                for _, v in pairs(loadoutOverrides) do
                     overrideActionButton(v, force)
                 end
             end
@@ -793,6 +837,7 @@ function GSE.ClearAllActionBarOverrides()
         end
     end
 
+    GSE.PruneEmptyActionBarOverrideContainers()
     GSE.ButtonOverrides = {}
     GSE.ReloadOverrides(true)
     GSE.Print(string.format(L["Cleared %d actionbar override(s) for this spec and its loadouts."], removed), GNOME)
