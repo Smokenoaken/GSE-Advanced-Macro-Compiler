@@ -81,19 +81,16 @@ local function ensureActionBarCVars()
     if actionBarCVarCheckedThisSession then return end
     actionBarCVarCheckedThisSession = true
     local fixed = {}
-    local needsReload = false
     if GetCVar("ActionButtonUseKeyDown") == "1" then
         SetCVar("ActionButtonUseKeyDown", 0)
         table.insert(fixed, "ActionButtonUseKeyDown (CVar)")
     end
     if GSEOptions.Multiclick then
-        GSEOptions.Multiclick = false
-        table.insert(fixed, "MultiClickButtons (GSE Option - requires /reload to fully apply)")
-        needsReload = true
+        table.insert(fixed, "MultiClickButtons (warning only - still enabled)")
     end
     if #fixed > 0 then
         GSE.Print(L["Actionbar Overrides: The following CVars were automatically set to false as they interfere with Actionbar Overrides: "] .. table.concat(fixed, ", "))
-        if needsReload then
+        if GSEOptions.Multiclick then
             GSE.Print(L["A UI reload is required for the MultiClickButtons change to take effect.  Type /reload when convenient."])
         end
     end
