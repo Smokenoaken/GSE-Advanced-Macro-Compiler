@@ -15,6 +15,7 @@ L["GSE_SEQUENCE_OLDER_VERSION_TEXT"] = "WARNING: The sequence '%s' was created w
 -- Sequence integrity / checksum strings
 L["Sequence has been altered from its exported state"] = true
 L["Proceed"] = true
+L["ToDebugString"] = true
 L["GSE_SEQUENCE_INTEGRITY_WARNING_TEXT"] = "WARNING: The sequence '%s' does not have a valid integrity checksum.\n\nThis means the sequence was either not created with GSE, or has been modified since it was last exported.\n\nPlease verify its contents before using it.\n\nDo you want to proceed with the import anyway?"
 
 -- Corrupt-sequence dialog strings

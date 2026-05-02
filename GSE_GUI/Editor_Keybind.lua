@@ -35,6 +35,19 @@ end
 -- buildKeybindMenu()  →  full KEYBINDINGS tree node
 -- ---------------------------------------------------------------------------
 local function buildKeybindMenu()
+    if GSE.isEmpty(GSE_C) then
+        GSE_C = {}
+    end
+    if GSE.isEmpty(GSE_C["ActionBarBinds"]) then
+        GSE_C["ActionBarBinds"] = {}
+    end
+    if GSE.isEmpty(GSE_C["ActionBarBinds"]["Specialisations"]) then
+        GSE_C["ActionBarBinds"]["Specialisations"] = {}
+    end
+    if GSE.isEmpty(GSE_C["KeyBindings"]) then
+        GSE_C["KeyBindings"] = {}
+    end
+
     local tree = {
         {
             value = "AO",
