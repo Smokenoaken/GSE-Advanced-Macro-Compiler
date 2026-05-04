@@ -1201,11 +1201,12 @@ function GSE.UpdateIcon(self, reseticon)
     elseif executionseq[step].type == "spell" then
         local spell = GSE.UnEscapeString(executionseq[step].spell)
         if spell then
-            spellinfo = C_Spell.GetSpellInfo(spell)
+            local currentSpell = GSE.GetCurrentSpellID and GSE.GetCurrentSpellID(spell) or spell
+            spellinfo = C_Spell.GetSpellInfo(currentSpell)
             if spellinfo then
                 foundSpell = spellinfo.name
             else
-                GSE.Print("Unable to find spell: " .. spell .. " from " .. self:GetName() .. " - Compiled Step " .. step)
+                GSE.Print("Unable to find spell: " .. tostring(spell) .. " from " .. self:GetName() .. " - Compiled Step " .. step)
             end
         end
     end
@@ -1421,7 +1422,9 @@ local function buildAction(action, metaData, blockPath)
                 end
 
                 if k == "spell" then
-                    spelllist[k] = GSE.GetSpellId(value, Statics.TranslatorMode.String)
+                    spelllist[k] =
+                        GSE.GetSpellId(value, Statics.TranslatorMode.ID) or
+                        GSE.GetSpellId(value, Statics.TranslatorMode.String)
                 elseif k == "macro" then
                     if string.sub(GSE.UnEscapeString(value), 1, 1) == "/" then
                         -- we have a line of macrotext
@@ -1739,7 +1742,7 @@ local function PCallCreateGSE3Button(spelllist, name, combatReset)
         steps[k] = {}
         for i, j in pairs(v) do
             if i ~= "blockPath" then
-                line = i .. "\002" .. j
+                line = i .. "\002" .. tostring(j)
                 tinsert(steps[k], line)
             end
         end
@@ -1803,6 +1806,10 @@ for k,v in ipairs(compressedspelllist) do
             if sa then
                 local a = string.sub(j, 1, sa - 1)
                 local b = string.sub(j, ea + 1)
+                if a == "spell" then
+                    local numericSpell = tonumber(b)
+                    if numericSpell then b = numericSpell end
+                end
                 spelllist[k][x][a] = b
             end
         end
