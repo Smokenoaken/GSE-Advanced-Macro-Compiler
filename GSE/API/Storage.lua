@@ -1189,18 +1189,24 @@ function GSE.UpdateIcon(self, reseticon)
             foundSpell = spellinfo.name
         end
     elseif executionseq[step].type == "item" then
-        local mname, _, _, _, _, _, _, _, _, micon = C_Item.GetItemInfo(GSE.UnEscapeString(executionseq[step].item))
-        if mname then
-            spellinfo.name = mname
-            spellinfo.iconID = micon
-            foundSpell = spellinfo.name
+        local item = GSE.UnEscapeString(executionseq[step].item)
+        if item then
+            local mname, _, _, _, _, _, _, _, _, micon = C_Item.GetItemInfo(item)
+            if mname then
+                spellinfo.name = mname
+                spellinfo.iconID = micon
+                foundSpell = spellinfo.name
+            end
         end
     elseif executionseq[step].type == "spell" then
-        spellinfo = C_Spell.GetSpellInfo(GSE.UnEscapeString(executionseq[step].spell))
-        if spellinfo then
-            foundSpell = spellinfo.name
-        else
-            GSE.Print("Unable to find spell: " .. GSE.UnEscapeString(executionseq[step].spell) .. " from " .. self:GetName() .. " - Compiled Step " .. step)
+        local spell = GSE.UnEscapeString(executionseq[step].spell)
+        if spell then
+            spellinfo = C_Spell.GetSpellInfo(spell)
+            if spellinfo then
+                foundSpell = spellinfo.name
+            else
+                GSE.Print("Unable to find spell: " .. spell .. " from " .. self:GetName() .. " - Compiled Step " .. step)
+            end
         end
     end
     if executionseq[step].Icon then
